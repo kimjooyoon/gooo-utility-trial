@@ -3,7 +3,6 @@ name: Gooo utility trial release
 on:
   push:
     tags: ['v*.*.*']
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -11,16 +10,15 @@ permissions:
 jobs:
   release:
     name: immutable-v0.1.0-release
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       GOCACHE: off
       GOTOOLCHAIN: local
       GH_TOKEN: ${{ github.token }}
-      EVIDENCE_DIR: ${{ runner.temp }}/gooo-utility-trial-release-evidence
-      PACKET_DIR: ${{ runner.temp }}/gooo-utility-trial-release-packet
-      WORK_DIR: ${{ runner.temp }}/gooo-utility-trial-release-work
+      EVIDENCE_DIR: /tmp/gooo-utility-trial-release-evidence
+      PACKET_DIR: /tmp/gooo-utility-trial-release-packet
+      WORK_DIR: /tmp/gooo-utility-trial-release-work
     steps:
       - name: Checkout exact release tag
         uses: actions/checkout@v6
@@ -103,7 +101,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: gooo-utility-trial-release-evidence-${{ github.ref_name }}
-          path: ${{ runner.temp }}/gooo-utility-trial-release-evidence
+          path: /tmp/gooo-utility-trial-release-evidence
           if-no-files-found: warn
           retention-days: 90
-
