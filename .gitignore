@@ -1,0 +1,10 @@
+.DS_Store
+
+# Local caller-owned trial output
+trial-output/
+validated-evidence.ndjson
+
+# Go build/test products
+bin/
+coverage.out
+
