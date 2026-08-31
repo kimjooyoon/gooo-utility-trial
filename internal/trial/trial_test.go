@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -83,7 +84,7 @@ func TestGeneratePacketHasFixedBoundary(t *testing.T) {
 	if manifest.ProtocolReady != "CLOSED" || manifest.UtilityState != "UNKNOWN" || manifest.ExternalEvidenceCount != 0 {
 		t.Fatalf("unexpected manifest state: %+v", manifest)
 	}
-	if manifest.Counts != countDenominator() || len(oracle.Tasks) != 2 {
+	if !reflect.DeepEqual(manifest.Counts, countDenominator()) || len(oracle.Tasks) != 2 {
 		t.Fatalf("unexpected fixed denominator: %+v", manifest.Counts)
 	}
 	data, err := os.ReadFile(filepath.Join(root, utilityReportPath))
@@ -110,8 +111,8 @@ func TestRecordMatchedPairAndExcludeProtocolTest(t *testing.T) {
 	if err := os.MkdirAll(receiptDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	base := finishReceipt(t, root, testReceipt(t, root, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "U1_BASELINE_RAW", 120, OriginExternal, false))
-	gooo := finishReceipt(t, root, testReceipt(t, root, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "U1_GOOO_DOSSIER", 80, OriginExternal, false))
+	base := finishReceipt(t, root, testReceipt(t, root, "11111111111111111111111111111111", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", AssignmentU1Baseline, 120, OriginExternal, false))
+	gooo := finishReceipt(t, root, testReceipt(t, root, "11111111111111111111111111111111", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", AssignmentU1Gooo, 80, OriginExternal, false))
 	basePath := writeReceipt(t, receiptDir, base)
 	goooPath := writeReceipt(t, receiptDir, gooo)
 	first, err := RecordReceipt(root, basePath)
@@ -125,7 +126,7 @@ func TestRecordMatchedPairAndExcludeProtocolTest(t *testing.T) {
 	if _, err := RecordReceipt(root, goooPath); err == nil || !strings.Contains(err.Error(), "REPLAYED_RECEIPT") {
 		t.Fatalf("replay was not rejected: %v", err)
 	}
-	protocol := finishReceipt(t, root, testReceipt(t, root, "cccccccccccccccccccccccccccccccc", AssignmentU2Baseline, 40, OriginCI, false))
+	protocol := finishReceipt(t, root, testReceipt(t, root, "22222222222222222222222222222222", "cccccccccccccccccccccccccccccccc", AssignmentU2Baseline, 40, OriginCI, false))
 	protocolPath := writeReceipt(t, receiptDir, protocol)
 	if _, err := RecordReceipt(root, protocolPath); err != nil {
 		t.Fatal(err)
@@ -147,7 +148,7 @@ func TestInvalidReceiptReasonsFailClosed(t *testing.T) {
 	if _, err := GeneratePacket(root); err != nil {
 		t.Fatal(err)
 	}
-	receipt := finishReceipt(t, root, testReceipt(t, root, "dddddddddddddddddddddddddddddddd", AssignmentU2Gooo, 5, OriginExternal, false))
+	receipt := finishReceipt(t, root, testReceipt(t, root, "33333333333333333333333333333333", "dddddddddddddddddddddddddddddddd", AssignmentU2Gooo, 5, OriginExternal, false))
 	for name, mutate := range map[string]func(*Receipt){
 		"origin": func(value *Receipt) { value.Origin = "invented" },
 		"negative timing": func(value *Receipt) { value.ElapsedMS = -1 },
@@ -168,7 +169,7 @@ func TestReceiptJSONHasNoNaturalLanguageDecision(t *testing.T) {
 	if _, err := GeneratePacket(root); err != nil {
 		t.Fatal(err)
 	}
-	receipt := finishReceipt(t, root, testReceipt(t, root, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", AssignmentU1Baseline, 1, OriginExternal, false))
+	receipt := finishReceipt(t, root, testReceipt(t, root, "44444444444444444444444444444444", "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", AssignmentU1Baseline, 1, OriginExternal, false))
 	data, err := json.Marshal(receipt)
 	if err != nil {
 		t.Fatal(err)
@@ -177,4 +178,3 @@ func TestReceiptJSONHasNoNaturalLanguageDecision(t *testing.T) {
 		t.Fatal("receipt contains a raw natural-language or decision token")
 	}
 }
-
