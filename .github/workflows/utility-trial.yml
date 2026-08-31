@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      GOCACHE: off
+      GOCACHE: /tmp/gooo-utility-trial-go-cache
       GOTOOLCHAIN: local
       GH_TOKEN: ${{ github.token }}
       UPSTREAM_REPOSITORY: kimjooyoon/gooo-opentofu-envelope

@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      GOCACHE: off
+      GOCACHE: /tmp/gooo-utility-trial-release-go-cache
       GOTOOLCHAIN: local
       GH_TOKEN: ${{ github.token }}
       EVIDENCE_DIR: /tmp/gooo-utility-trial-release-evidence
