@@ -10,6 +10,21 @@
   "unknown_tuple": ["stage", "step", "reason", "unknown_class", "next_operation", "blocked_by"],
   "eligible_origins": ["EXTERNAL_USER", "INDEPENDENT_SESSION"],
   "protocol_test_origins": ["CI", "MAINTAINER_SELF_TEST", "SYNTHETIC"],
+  "axes": {
+    "protocol_ready": "CLOSED",
+    "utility": "UNKNOWN",
+    "process": "REFUTED",
+    "score": "NOT_COMBINED"
+  },
+  "process_receipt": {
+    "path": "process/release-history-rewrite-process-receipt.json",
+    "source_path": ".gooo/activity/release-history-rewrite-process-receipt.json",
+    "activity": "RecordReleaseHistoryRewriteProcess",
+    "decision": "RELEASE_HISTORY_REWRITE_PROCESS=REFUTED",
+    "protocol_denominator_delta": 0,
+    "utility_score_inclusion": false,
+    "denominator_migration": "NONE"
+  },
   "cells": [
     {"ordinal": 1, "id": "TRIAL_INPUT_DECLARED", "activity": "DeclareIndependentTrialInput", "stage": "INPUT", "step": "DECLARE_TRIAL_INPUT", "proof_family": "FOUNDATION", "indicator": "DRIVER", "case_state": "CLOSED", "depends_on": []},
     {"ordinal": 2, "id": "RELEASE_ANCHORED", "activity": "AnchorImmutableGoooRelease", "stage": "RELEASE", "step": "ANCHOR_IMMUTABLE_GOOO_RELEASE", "proof_family": "FOUNDATION", "indicator": "DRIVER", "case_state": "CLOSED", "depends_on": ["TRIAL_INPUT_DECLARED"]},

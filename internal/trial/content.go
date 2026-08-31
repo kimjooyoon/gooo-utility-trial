@@ -51,6 +51,38 @@ has not been observed. The complete six-field frontier is:
 
 Decision token: ` + "`PROVIDE_INDEPENDENT_EXTERNAL_UTILITY_EVIDENCE`" + `.
 
+## Release-history process axis
+
+` + "`RELEASE_HISTORY_REWRITE_PROCESS=REFUTED`" + ` is a separate non-score
+process finding. Failed release run ` + "`33407273856`" + ` preserved artifact
+` + "`9763659711`" + ` and original release ` + "`379848683`" + ` with
+` + "`immutable=false`" + `. Its assets were ` + "`538154567`" + ` /
+` + "`11377`" + ` /
+` + "`sha256:1350c51f5f7db9dc2c6ac64523229f75cf7ec9ebdffaf99aa2c6edf32a40aa72`" + `
+and ` + "`538154571`" + ` /
+` + "`104`" + ` /
+` + "`sha256:1848476904a222e9fab2fbe2186ba7315ca0fb1df247ea5ddfb5d9462f1997ba`" + `.
+
+The release was deleted and recreated. Replacement run ` + "`33407562271`" + `
+and artifact ` + "`9763767396`" + ` produced release ` + "`379850805`" + ` with
+` + "`immutable=true`" + `. Its assets are ` + "`538157619`" + ` /
+` + "`11376`" + ` /
+` + "`sha256:734082b840e915b48c42e14e93252624f5e441538509ff29dafe259b851f9a9e`" + `
+and ` + "`538157605`" + ` /
+` + "`104`" + ` /
+` + "`sha256:152398724ab80d4ad5dbaaa040fc2d63261431322d9344d1305e6c840bbf5ffa`" + `.
+
+Both attempts point to tag object
+` + "`e30bca521d127d929043557198557710d35afcd2`" + ` and target commit
+` + "`6521e699f1e1180b7e942ae18d0948383c3d544e`" + `. The failed run and both
+asset sets are preserved; ` + "`v0.1.0`" + ` is read-only and must never be
+touched again.
+
+The protocol remains ` + "`protocol_ready=CLOSED`" + ` and ` + "`utility=UNKNOWN`" + `
+with external evidence ` + "`0`" + ` and eligible pairs ` + "`0`" + `. These axes
+are never averaged. The protocol denominator remains exactly 12 cells and 12
+activities; no process cell was added and denominator migration is ` + "`NONE`" + `.
+
 Natural-language reactions and ratings are not evidence of correctness. A
 session receipt records only the exact decision digest, correctness integer,
 observed monotonic timing, abandonment state, and the required provenance.
@@ -109,4 +141,3 @@ func baselineEvidenceValue() (any, error) {
 	}
 	return value, nil
 }
-

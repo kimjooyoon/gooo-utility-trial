@@ -58,6 +58,14 @@ jobs:
             .precedence==["REFUTED","UNKNOWN","CLOSED"] and
             (.cells|length)==12
           ' contracts/trial-denominator-v1.json >/dev/null
+          test -s .gooo/activity/release-history-rewrite.gooo
+          test -s .gooo/activity/release-history-rewrite-process-receipt.json
+          test -s .gooo/contract/release-history-rewrite-v1.json
+          test -s .gooo/generated/evaluator/release-history-rewrite.json
+          test -s .gooo/counterexamples/release-history-rewrite.json
+          test -s .gooo/dossier/release-history-rewrite.md
+          test -x .gooo/evaluator/release-history-rewrite.sh
+          grep -Fq 'RELEASE_HISTORY_REWRITE_PROCESS=REFUTED' .gooo/activity/release-history-rewrite.gooo
 
       - name: Verify immutable upstream Gooo release through GitHub API
         shell: bash
@@ -89,6 +97,22 @@ jobs:
           echo $(( (end_ns-start_ns+999999)/1000000 )) > "$WORK_DIR/build-wall-ms"
           test -x "$WORK_DIR/gooo-utility-trial"
 
+      - name: Evaluate release-history rewrite as a separate non-score process
+        shell: bash
+        run: |
+          set -euo pipefail
+          .gooo/evaluator/release-history-rewrite.sh "$GITHUB_WORKSPACE" "$WORK_DIR/release-history-rewrite-evaluator-run.json"
+          jq -e '
+            .decision=="RELEASE_HISTORY_REWRITE_PROCESS=REFUTED" and
+            .process_state=="REFUTED" and .protocol_ready=="CLOSED" and
+            .utility=="UNKNOWN" and .external_evidence_count==0 and
+            .eligible_pairs==0 and .score=="NOT_COMBINED" and
+            .denominator_migration.operation=="NONE" and
+            .denominator_migration.protocol_cells_before==12 and
+            .denominator_migration.protocol_cells_after==12 and
+            .denominator_migration.process_cells_added==0
+          ' "$WORK_DIR/release-history-rewrite-evaluator-run.json" >/dev/null
+
       - name: Run Go tests with measured wall time and peak RSS
         shell: bash
         run: |
@@ -106,20 +130,32 @@ jobs:
           /usr/bin/time -f '%M' -o "$WORK_DIR/conformance-rss-kib" "$WORK_DIR/gooo-utility-trial" packet -output "$PACKET_DIR" > "$WORK_DIR/packet.json"
           end_ns=$(date +%s%N)
           echo $(( (end_ns-start_ns+999999)/1000000 )) > "$WORK_DIR/conformance-wall-ms"
-          jq -e '.state=="CLOSED" and .protocol_ready=="CLOSED" and .utility=="UNKNOWN"' "$WORK_DIR/packet.json" >/dev/null
+          jq -e '.state=="CLOSED" and .protocol_ready=="CLOSED" and .utility=="UNKNOWN" and .process=="REFUTED"' "$WORK_DIR/packet.json" >/dev/null
           test -s "$PACKET_DIR/trial-manifest.json"
           test -s "$PACKET_DIR/assignments.ndjson"
           test -s "$PACKET_DIR/oracle.json"
           test -s "$PACKET_DIR/session-receipt.schema.json"
           test -f "$PACKET_DIR/validated-evidence.ndjson"
           jq -e '
-            .protocol_ready=="CLOSED" and .utility_state=="UNKNOWN" and .external_evidence_count==0 and
+            .protocol_ready=="CLOSED" and .utility_state=="UNKNOWN" and .process_state=="REFUTED" and .external_evidence_count==0 and
             .counts=={
               "cells":12,"activities":12,"proof_foundation":4,"proof_coherence":4,"proof_regression":4,
               "indicator_driver":4,"indicator_outcome":4,"indicator_guardrail":4,"closed":3,"unknown":3,"refuted":6,
               "precedence":["REFUTED","UNKNOWN","CLOSED"]
             }
           ' "$PACKET_DIR/trial-manifest.json" >/dev/null
+          jq -e '
+            .axes.protocol_ready=="CLOSED" and .axes.utility=="UNKNOWN" and
+            .axes.process=="REFUTED" and .axes.score=="NOT_COMBINED" and
+            .process_receipt.path=="process/release-history-rewrite-process-receipt.json" and
+            .process_receipt.source_path==".gooo/activity/release-history-rewrite-process-receipt.json" and
+            .process_receipt.protocol_denominator_delta==0 and
+            .process_receipt.utility_score_inclusion==false
+          ' "$PACKET_DIR/contract.json" >/dev/null
+          test -s "$PACKET_DIR/process/release-history-rewrite-process-receipt.json"
+          jq -S . .gooo/activity/release-history-rewrite-process-receipt.json > "$WORK_DIR/source-process-receipt.json"
+          jq -S . "$PACKET_DIR/process/release-history-rewrite-process-receipt.json" > "$WORK_DIR/packet-process-receipt.json"
+          cmp "$WORK_DIR/source-process-receipt.json" "$WORK_DIR/packet-process-receipt.json"
           jq -e '.tasks|length==2 and all(.[]; (.assignments|length)==2)' "$PACKET_DIR/oracle.json" >/dev/null
           jq -e '.tasks[]|select(.task_id=="U2_UNKNOWN_RESUME")|.unknown_frontier|([.stage,.step,.reason,.unknown_class,.next_operation,(.blocked_by|join(","))]|length)==6' "$PACKET_DIR/oracle.json" >/dev/null
 
@@ -149,6 +185,7 @@ jobs:
           jq -e '.state=="CLOSED"' "$WORK_DIR/report.json" >/dev/null
           grep -q 'protocol_ready: `CLOSED`' "$PACKET_DIR/utility-report.md"
           grep -q 'utility: `UNKNOWN`' "$PACKET_DIR/utility-report.md"
+          grep -q 'process: `REFUTED`' "$PACKET_DIR/utility-report.md"
           grep -q 'eligible pairs | 0' "$PACKET_DIR/utility-report.md"
           grep -q 'executed tests | 1' "$PACKET_DIR/utility-report.md"
 
@@ -168,6 +205,8 @@ jobs:
           cp -f "$WORK_DIR/test.log" "$EVIDENCE_DIR/" 2>/dev/null || true
           cp -f "$WORK_DIR/upstream-release.json" "$EVIDENCE_DIR/" 2>/dev/null || true
           cp -f "$WORK_DIR/report.json" "$EVIDENCE_DIR/" 2>/dev/null || true
+          cp -f "$WORK_DIR/release-history-rewrite-evaluator-run.json" "$EVIDENCE_DIR/" 2>/dev/null || true
+          cp -R .gooo "$EVIDENCE_DIR/gooo" 2>/dev/null || true
           cp -R "$PACKET_DIR" "$EVIDENCE_DIR/packet" 2>/dev/null || true
           find "$EVIDENCE_DIR" -type f -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/SHA256SUMS" || true
 

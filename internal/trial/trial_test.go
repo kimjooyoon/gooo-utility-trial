@@ -82,7 +82,7 @@ func TestGeneratePacketHasFixedBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if manifest.ProtocolReady != "CLOSED" || manifest.UtilityState != "UNKNOWN" || manifest.ExternalEvidenceCount != 0 {
+	if manifest.ProtocolReady != "CLOSED" || manifest.UtilityState != "UNKNOWN" || manifest.ProcessState != "REFUTED" || manifest.ExternalEvidenceCount != 0 {
 		t.Fatalf("unexpected manifest state: %+v", manifest)
 	}
 	if !reflect.DeepEqual(manifest.Counts, countDenominator()) || len(oracle.Tasks) != 2 {
@@ -93,7 +93,7 @@ func TestGeneratePacketHasFixedBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	report := string(data)
-	for _, expected := range []string{"protocol_ready: `CLOSED`", "utility: `UNKNOWN`", "eligible sessions | 0", "eligible pairs | 0", "REFUTED 6", "Go physical lines | 0"} {
+	for _, expected := range []string{"protocol_ready: `CLOSED`", "utility: `UNKNOWN`", "process: `REFUTED`", "eligible sessions | 0", "eligible pairs | 0", "REFUTED 6", "Go physical lines | 0"} {
 		if !strings.Contains(report, expected) {
 			t.Errorf("report missing %q", expected)
 		}

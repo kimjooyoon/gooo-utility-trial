@@ -238,7 +238,7 @@ func WriteReport(root string) error {
 	var builder strings.Builder
 	builder.WriteString("# Gooo utility trial report\n\n")
 	builder.WriteString("This report is a fail-closed measurement boundary. It does not convert CI, maintainer self-tests, or synthetic fixtures into external utility evidence.\n\n")
-	fmt.Fprintf(&builder, "- protocol_ready: `%s`\n- utility: `%s`\n- utility_improvement: `%s`\n- external_evidence: `%d`\n- protocol_test_evidence: `%d`\n", metrics.ProtocolReady, metrics.Utility, metrics.UtilityImprovement, metrics.ExternalEvidence, metrics.ProtocolTestEvidence)
+	fmt.Fprintf(&builder, "- protocol_ready: `%s`\n- utility: `%s`\n- utility_improvement: `%s`\n- process: `REFUTED`\n- external_evidence: `%d`\n- protocol_test_evidence: `%d`\n", metrics.ProtocolReady, metrics.Utility, metrics.UtilityImprovement, metrics.ExternalEvidence, metrics.ProtocolTestEvidence)
 	if metrics.EligiblePairs == 0 {
 		builder.WriteString("- no eligible before/after pair: utility improvement remains `UNKNOWN`\n")
 	}

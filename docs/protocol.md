@@ -25,6 +25,12 @@ protocol validator but are always excluded from the utility numerator. With
 zero eligible pairs, the report is `protocol_ready=CLOSED` and
 `utility=UNKNOWN`.
 
+The release-history audit has a separate process axis:
+`RELEASE_HISTORY_REWRITE_PROCESS=REFUTED`. It records that a failed release
+attempt was followed by deletion/recreation of the same version. This process
+receipt is non-score evidence: it does not change the fixed 12-cell protocol
+denominator and is never averaged with `protocol_ready` or `utility`.
+
 ## Use
 
 Create a fresh caller-owned temporary directory:
