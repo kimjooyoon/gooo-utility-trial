@@ -47,17 +47,26 @@ jobs:
           mkdir -p "$EVIDENCE_DIR" "$WORK_DIR"
           go version | tee "$WORK_DIR/go-version.txt"
           grep -Eq '^go version go1\.27([.]0)? ' "$WORK_DIR/go-version.txt"
+          build_start_ns=$(date +%s%N)
           /usr/bin/time -f '%M' -o "$WORK_DIR/build-rss-kib" go build -trimpath -o "$WORK_DIR/gooo-utility-trial" ./cmd/gooo-utility-trial
+          build_end_ns=$(date +%s%N)
+          build_wall_ms=$(( (build_end_ns-build_start_ns+999999)/1000000 ))
+          test_start_ns=$(date +%s%N)
           /usr/bin/time -f '%M' -o "$WORK_DIR/test-rss-kib" go test -count=1 ./... 2>&1 | tee "$WORK_DIR/test.log"
-          "$WORK_DIR/gooo-utility-trial" packet -output "$PACKET_DIR" > "$WORK_DIR/packet.json"
+          test_end_ns=$(date +%s%N)
+          test_wall_ms=$(( (test_end_ns-test_start_ns+999999)/1000000 ))
+          conformance_start_ns=$(date +%s%N)
+          /usr/bin/time -f '%M' -o "$WORK_DIR/conformance-rss-kib" "$WORK_DIR/gooo-utility-trial" packet -output "$PACKET_DIR" > "$WORK_DIR/packet.json"
+          conformance_end_ns=$(date +%s%N)
+          conformance_wall_ms=$(( (conformance_end_ns-conformance_start_ns+999999)/1000000 ))
           jq -e '.state=="CLOSED" and .utility=="UNKNOWN"' "$WORK_DIR/packet.json" >/dev/null
-          jq -n --argjson build 0 --argjson test 0 --argjson conformance 0 \
-            --argjson build_rss "$(cat "$WORK_DIR/build-rss-kib")" --argjson test_rss "$(cat "$WORK_DIR/test-rss-kib")" \
-            --argjson go_lines "$(find . -path './.git' -prune -o -type f -name '*.go' -print -exec awk 'END {n += NR} END {print n}' {} + | tail -n 1)" \
+          jq -n --argjson build "$build_wall_ms" --argjson test "$test_wall_ms" --argjson conformance "$conformance_wall_ms" \
+            --argjson build_rss "$(cat "$WORK_DIR/build-rss-kib")" --argjson test_rss "$(cat "$WORK_DIR/test-rss-kib")" --argjson conformance_rss "$(cat "$WORK_DIR/conformance-rss-kib")" \
+            --argjson go_lines "$(find . -path './.git' -prune -o -type f -name '*.go' -print0 | xargs -0 awk 'END {print NR}')" \
             --argjson gooo_lines "$(awk 'END {print NR}' meta/utility-trial.gooo)" \
             --argjson files "$(find . -path './.git' -prune -o -type f ! -path './README.md' -print | wc -l | tr -d ' ')" \
             --argjson dirs "$(find . -path './.git' -prune -o -mindepth 1 -type d -print | wc -l | tr -d ' ')" \
-            '{build_wall_ms:$build,test_wall_ms:$test,conformance_wall_ms:$conformance,build_rss_kib:$build_rss,test_rss_kib:$test_rss,conformance_rss_kib:null,executed_tests:1,reused_tests:0,skipped_tests:0,not_observed_tests:1,go_lines:$go_lines,gooo_lines:$gooo_lines,regular_files:$files,descendant_directories:$dirs}' > "$PACKET_DIR/runtime-metrics.json"
+            '{build_wall_ms:$build,test_wall_ms:$test,conformance_wall_ms:$conformance,build_rss_kib:$build_rss,test_rss_kib:$test_rss,conformance_rss_kib:$conformance_rss,executed_tests:1,reused_tests:0,skipped_tests:0,not_observed_tests:0,go_lines:$go_lines,gooo_lines:$gooo_lines,regular_files:$files,descendant_directories:$dirs}' > "$PACKET_DIR/runtime-metrics.json"
           "$WORK_DIR/gooo-utility-trial" report -packet "$PACKET_DIR" > "$WORK_DIR/report.json"
           mkdir -p "$WORK_DIR/release"
           cp -R "$PACKET_DIR" "$WORK_DIR/release/packet"
