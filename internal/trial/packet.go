@@ -17,6 +17,7 @@ const (
 	assignmentsPath         = "assignments.ndjson"
 	oraclePath              = "oracle.json"
 	contractPath            = "contract.json"
+	processReceiptPath       = "process/release-history-rewrite-process-receipt.json"
 	receiptSchemaPath       = "session-receipt.schema.json"
 	validatedEvidencePath   = "validated-evidence.ndjson"
 	rejectedReceiptsPath    = "rejected-receipts.ndjson"
@@ -38,6 +39,21 @@ func contractValue() map[string]any {
 		"unknown_tuple": []string{"stage", "step", "reason", "unknown_class", "next_operation", "blocked_by"},
 		"eligible_origins": []string{OriginExternal, OriginIndependent},
 		"protocol_test_origins": []string{OriginCI, OriginMaintainer, OriginSynthetic},
+		"axes": map[string]any{
+			"protocol_ready": "CLOSED",
+			"utility":        "UNKNOWN",
+			"process":        "REFUTED",
+			"score":          "NOT_COMBINED",
+		},
+		"process_receipt": map[string]any{
+			"path":                         processReceiptPath,
+			"source_path":                  ".gooo/activity/release-history-rewrite-process-receipt.json",
+			"activity":                     "RecordReleaseHistoryRewriteProcess",
+			"decision":                     "RELEASE_HISTORY_REWRITE_PROCESS=REFUTED",
+			"protocol_denominator_delta":   0,
+			"utility_score_inclusion":      false,
+			"denominator_migration":        "NONE",
+		},
 	}
 }
 
@@ -109,7 +125,7 @@ func writeNDJSON(path string, values []any) error {
 }
 
 func makeToolchain() ToolchainReference {
-	value := map[string]string{"go_version": "1.27.0", "product": "gooo-utility-trial/0.1.0"}
+	value := map[string]string{"go_version": "1.27.0", "product": "gooo-utility-trial/0.1.1"}
 	digest, _ := canonicalDigest(value)
 	return ToolchainReference{GoVersion: value["go_version"], Product: value["product"], SHA256: digest}
 }
@@ -119,7 +135,7 @@ func GeneratePacket(output string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for _, dir := range []string{filepath.Join(root, "baseline-pack"), filepath.Join(root, "gooo-pack")} {
+	for _, dir := range []string{filepath.Join(root, "baseline-pack"), filepath.Join(root, "gooo-pack"), filepath.Join(root, "process")} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return "", fmt.Errorf("%w: create packet directory: %v", ErrInvalidPacket, err)
 		}
@@ -186,6 +202,9 @@ func GeneratePacket(output string) (string, error) {
 	if err := os.WriteFile(filepath.Join(root, receiptSchemaPath), []byte(receiptSchemaJSON+"\n"), 0o644); err != nil {
 		return "", err
 	}
+	if err := writeJSON(filepath.Join(root, processReceiptPath), releaseHistoryRewriteValue()); err != nil {
+		return "", err
+	}
 	assignmentValues := make([]any, 0, 12)
 	for _, value := range buildAssignments() {
 		assignmentValues = append(assignmentValues, value)
@@ -233,6 +252,7 @@ func GeneratePacket(output string) (string, error) {
 		},
 		UtilityState: "UNKNOWN",
 		ProtocolReady: "CLOSED",
+		ProcessState: "REFUTED",
 		ExternalEvidenceCount: 0,
 		Authority: Authority{},
 	}
@@ -294,6 +314,9 @@ func LoadManifest(root string) (Manifest, Oracle, error) {
 	}
 	if manifest.Schema != ProtocolSchema+"/manifest/v1" || manifest.ProtocolVersion != "v1" || manifest.Product != "gooo-utility-trial" {
 		return manifest, oracle, fmt.Errorf("%w: manifest identity", ErrInvalidPacket)
+	}
+	if manifest.ProtocolReady != "CLOSED" || manifest.UtilityState != "UNKNOWN" || manifest.ProcessState != "REFUTED" {
+		return manifest, oracle, fmt.Errorf("%w: independent state axes", ErrInvalidPacket)
 	}
 	if manifest.Counts.Cells != 12 || manifest.Counts.Activities != 12 || manifest.Counts.ProofFoundation != 4 || manifest.Counts.ProofCoherence != 4 || manifest.Counts.ProofRegression != 4 || manifest.Counts.IndicatorDriver != 4 || manifest.Counts.IndicatorOutcome != 4 || manifest.Counts.IndicatorGuardrail != 4 || manifest.Counts.Closed != 3 || manifest.Counts.Unknown != 3 || manifest.Counts.Refuted != 6 {
 		return manifest, oracle, fmt.Errorf("%w: fixed denominator", ErrInvalidPacket)

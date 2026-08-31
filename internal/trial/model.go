@@ -132,6 +132,7 @@ type Manifest struct {
 	Artifacts               []Artifact         `json:"artifacts"`
 	UtilityState             string             `json:"utility_state"`
 	ProtocolReady            string             `json:"protocol_ready"`
+	ProcessState             string             `json:"process_state"`
 	ExternalEvidenceCount    int                `json:"external_evidence_count"`
 	Authority                Authority          `json:"authority"`
 }

@@ -2,14 +2,14 @@ name: Gooo utility trial release
 
 on:
   push:
-    tags: ['v*.*.*']
+    tags: ['v0.1.1']
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: immutable-v0.1.0-release
+    name: immutable-v0.1.1-release
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -32,19 +32,41 @@ jobs:
           go-version: '1.27.0'
           cache: false
 
-      - name: Require annotated tag v0.1.0 at the submitted commit
+      - name: Require annotated tag v0.1.1 at the submitted commit
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REF_NAME" = v0.1.0
+          mkdir -p "$EVIDENCE_DIR" "$WORK_DIR"
+          test "$GITHUB_REF_NAME" = v0.1.1
           test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
           test "$(git rev-parse "$GITHUB_REF_NAME^{commit}")" = "$GITHUB_SHA"
+          git rev-parse "$GITHUB_REF_NAME^{tag}" > "$WORK_DIR/v0.1.1-tag-object-sha"
+          git rev-parse "$GITHUB_REF_NAME^{commit}" > "$WORK_DIR/v0.1.1-target-commit-sha"
+
+      - name: Verify v0.1.0 history is still immutable before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0" > "$WORK_DIR/v0.1.0-release-before.json"
+          jq -e '
+            .id==379850805 and .tag_name=="v0.1.0" and .draft==false and .prerelease==false and .immutable==true and
+            ([.assets[]|select(.id==538157619 and .name=="gooo-utility-trial-0.1.0-evidence.zip" and .size==11376 and .digest=="sha256:734082b840e915b48c42e14e93252624f5e441538509ff29dafe259b851f9a9e")]|length)==1 and
+            ([.assets[]|select(.id==538157605 and .name=="SHA256SUMS" and .size==104 and .digest=="sha256:152398724ab80d4ad5dbaaa040fc2d63261431322d9344d1305e6c840bbf5ffa")]|length)==1
+          ' "$WORK_DIR/v0.1.0-release-before.json" >/dev/null
+          test "$(git ls-remote origin refs/tags/v0.1.0 | awk 'NR==1{print $1}')" = e30bca521d127d929043557198557710d35afcd2
+          test "$(git ls-remote origin 'refs/tags/v0.1.0^{}' | awk 'NR==1{print $1}')" = 6521e699f1e1180b7e942ae18d0948383c3d544e
+
+      - name: Evaluate release-history rewrite process receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          .gooo/evaluator/release-history-rewrite.sh "$GITHUB_WORKSPACE" "$WORK_DIR/release-history-rewrite-evaluator-run.json"
+          jq -e '.decision=="RELEASE_HISTORY_REWRITE_PROCESS=REFUTED" and .process_state=="REFUTED" and .protocol_ready=="CLOSED" and .utility=="UNKNOWN" and .external_evidence_count==0 and .eligible_pairs==0 and .score=="NOT_COMBINED"' "$WORK_DIR/release-history-rewrite-evaluator-run.json" >/dev/null
 
       - name: Build, test, and generate release packet
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$EVIDENCE_DIR" "$WORK_DIR"
           go version | tee "$WORK_DIR/go-version.txt"
           grep -Eq '^go version go1\.27([.]0)? ' "$WORK_DIR/go-version.txt"
           build_start_ns=$(date +%s%N)
@@ -59,7 +81,7 @@ jobs:
           /usr/bin/time -f '%M' -o "$WORK_DIR/conformance-rss-kib" "$WORK_DIR/gooo-utility-trial" packet -output "$PACKET_DIR" > "$WORK_DIR/packet.json"
           conformance_end_ns=$(date +%s%N)
           conformance_wall_ms=$(( (conformance_end_ns-conformance_start_ns+999999)/1000000 ))
-          jq -e '.state=="CLOSED" and .utility=="UNKNOWN"' "$WORK_DIR/packet.json" >/dev/null
+          jq -e '.state=="CLOSED" and .protocol_ready=="CLOSED" and .utility=="UNKNOWN" and .process=="REFUTED"' "$WORK_DIR/packet.json" >/dev/null
           jq -n --argjson build "$build_wall_ms" --argjson test "$test_wall_ms" --argjson conformance "$conformance_wall_ms" \
             --argjson build_rss "$(cat "$WORK_DIR/build-rss-kib")" --argjson test_rss "$(cat "$WORK_DIR/test-rss-kib")" --argjson conformance_rss "$(cat "$WORK_DIR/conformance-rss-kib")" \
             --argjson go_lines "$(find . -path './.git' -prune -o -type f -name '*.go' -print0 | xargs -0 awk 'END {print NR}')" \
@@ -68,44 +90,80 @@ jobs:
             --argjson dirs "$(find . -path './.git' -prune -o -mindepth 1 -type d -print | wc -l | tr -d ' ')" \
             '{build_wall_ms:$build,test_wall_ms:$test,conformance_wall_ms:$conformance,build_rss_kib:$build_rss,test_rss_kib:$test_rss,conformance_rss_kib:$conformance_rss,executed_tests:1,reused_tests:0,skipped_tests:0,not_observed_tests:0,go_lines:$go_lines,gooo_lines:$gooo_lines,regular_files:$files,descendant_directories:$dirs}' > "$PACKET_DIR/runtime-metrics.json"
           "$WORK_DIR/gooo-utility-trial" report -packet "$PACKET_DIR" > "$WORK_DIR/report.json"
+          jq -e '.state=="CLOSED"' "$WORK_DIR/report.json" >/dev/null
+          grep -q 'protocol_ready: `CLOSED`' "$PACKET_DIR/utility-report.md"
+          grep -q 'utility: `UNKNOWN`' "$PACKET_DIR/utility-report.md"
+          grep -q 'process: `REFUTED`' "$PACKET_DIR/utility-report.md"
           mkdir -p "$WORK_DIR/release"
           cp -R "$PACKET_DIR" "$WORK_DIR/release/packet"
-          (cd "$WORK_DIR/release" && zip -qr "gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" packet)
+          cp -R .gooo "$WORK_DIR/release/gooo"
+          cp "$WORK_DIR/release-history-rewrite-evaluator-run.json" "$WORK_DIR/release/goo-release-history-rewrite-evaluator-run.json"
+          cp "$WORK_DIR/v0.1.1-tag-object-sha" "$WORK_DIR/release/"
+          cp "$WORK_DIR/v0.1.1-target-commit-sha" "$WORK_DIR/release/"
+          (cd "$WORK_DIR/release" && zip -qr "gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" packet gooo goo-release-history-rewrite-evaluator-run.json v0.1.1-tag-object-sha v0.1.1-target-commit-sha)
           (cd "$WORK_DIR/release" && sha256sum "gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" > SHA256SUMS)
 
-      - name: Create GitHub release assets
+      - name: Refuse a pre-existing v0.1.1 release before the single publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq '[.[]|select(.tag_name=="v0.1.1")]|length')
+          test "$existing" = 0
+
+      - name: Create exactly one GitHub v0.1.1 release
         shell: bash
         run: |
           set -euo pipefail
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Gooo Utility Trial $GITHUB_REF_NAME" \
-            --notes "Immutable release of the independent utility-trial protocol. The bundled canonical packet contains zero external user receipts; its utility state is UNKNOWN." \
+            --notes "Immutable release of the independent utility-trial protocol. protocol_ready=CLOSED, utility=UNKNOWN, process=REFUTED; the process finding is separate non-score evidence and the packet contains zero external user receipts." \
             "$WORK_DIR/release/gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" \
             "$WORK_DIR/release/SHA256SUMS"
 
-      - name: Verify release immutability and assets through GitHub API
+      - name: Verify v0.1.1 immutability, tag identity, assets, and v0.1.0 preservation
         shell: bash
         run: |
           set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" > "$WORK_DIR/release.json"
-          jq -e --arg tag "$GITHUB_REF_NAME" --arg asset "gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" '
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" > "$WORK_DIR/v0.1.1-release.json"
+          zip_name="gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip"
+          zip_size=$(wc -c < "$WORK_DIR/release/$zip_name" | tr -d ' ')
+          zip_digest="sha256:$(sha256sum "$WORK_DIR/release/$zip_name" | awk '{print $1}')"
+          sums_size=$(wc -c < "$WORK_DIR/release/SHA256SUMS" | tr -d ' ')
+          sums_digest="sha256:$(sha256sum "$WORK_DIR/release/SHA256SUMS" | awk '{print $1}')"
+          jq -e --arg tag "$GITHUB_REF_NAME" --arg zip "$zip_name" --arg zip_digest "$zip_digest" --arg sums_digest "$sums_digest" --argjson zip_size "$zip_size" --argjson sums_size "$sums_size" '
             .tag_name==$tag and .draft==false and .prerelease==false and .immutable==true and
-            ([.assets[]|select(.name==$asset and .size>0 and (.digest|startswith("sha256:")))]|length)==1 and
-            ([.assets[]|select(.name=="SHA256SUMS" and .size>0 and (.digest|startswith("sha256:")))]|length)==1
-          ' "$WORK_DIR/release.json" >/dev/null
-          jq -e --arg tag "$GITHUB_REF_NAME" '.tag_name==$tag' "$WORK_DIR/release.json" >/dev/null
+            ([.assets[]|select(.name==$zip and .size==$zip_size and .digest==$zip_digest)]|length)==1 and
+            ([.assets[]|select(.name=="SHA256SUMS" and .size==$sums_size and .digest==$sums_digest)]|length)==1 and
+            ([.assets[]|select(.name==$zip)]|length)==1 and ([.assets[]|select(.name=="SHA256SUMS")]|length)==1
+          ' "$WORK_DIR/v0.1.1-release.json" >/dev/null
+          zip_asset_id=$(jq -r --arg zip "$zip_name" '.assets[]|select(.name==$zip)|.id' "$WORK_DIR/v0.1.1-release.json")
+          gh api -H 'Accept: application/octet-stream' "repos/$GITHUB_REPOSITORY/releases/assets/$zip_asset_id" > "$WORK_DIR/downloaded-v0.1.1-evidence.zip"
+          test "$(wc -c < "$WORK_DIR/downloaded-v0.1.1-evidence.zip" | tr -d ' ')" = "$zip_size"
+          test "sha256:$(sha256sum "$WORK_DIR/downloaded-v0.1.1-evidence.zip" | awk '{print $1}')" = "$zip_digest"
+          test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
+          test "$(git rev-parse "$GITHUB_REF_NAME^{commit}")" = "$GITHUB_SHA"
+          test "$(git ls-remote origin "refs/tags/$GITHUB_REF_NAME" | awk 'NR==1{print $1}')" = "$(cat "$WORK_DIR/v0.1.1-tag-object-sha")"
+          test "$(git ls-remote origin "refs/tags/$GITHUB_REF_NAME^{}" | awk 'NR==1{print $1}')" = "$GITHUB_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.1.0" > "$WORK_DIR/v0.1.0-release-after.json"
+          cmp "$WORK_DIR/v0.1.0-release-before.json" "$WORK_DIR/v0.1.0-release-after.json"
+          test "$(git ls-remote origin refs/tags/v0.1.0 | awk 'NR==1{print $1}')" = e30bca521d127d929043557198557710d35afcd2
+          test "$(git ls-remote origin 'refs/tags/v0.1.0^{}' | awk 'NR==1{print $1}')" = 6521e699f1e1180b7e942ae18d0948383c3d544e
+          jq -S -n --arg run_id "$GITHUB_RUN_ID" --arg workflow "$GITHUB_WORKFLOW" --arg tag_object "$(cat "$WORK_DIR/v0.1.1-tag-object-sha")" --arg target "$GITHUB_SHA" --slurpfile release "$WORK_DIR/v0.1.1-release.json" --slurpfile old "$WORK_DIR/v0.1.0-release-after.json" \
+            '{schema:"gooo/utility-trial/release-audit/v1",audit_run_id:($run_id|tonumber),workflow:$workflow,release:{id:$release[0].id,tag_name:$release[0].tag_name,immutable:$release[0].immutable,assets:($release[0].assets|map({id,name,size,digest}))},tag:{name:"v0.1.1",tag_object_sha:$tag_object,target_commit_sha:$target},v0_1_0_preserved:{release_id:$old[0].id,tag_name:$old[0].tag_name,immutable:$old[0].immutable,assets:($old[0].assets|map({id,name,size,digest}))}}' > "$WORK_DIR/release-audit.json"
+          jq -e '.schema=="gooo/utility-trial/release-audit/v1" and .release.tag_name=="v0.1.1" and .release.immutable==true and (.release.assets|length)==2 and .tag.tag_object_sha!="" and .tag.target_commit_sha==env.GITHUB_SHA and .v0_1_0_preserved.release_id==379850805 and .v0_1_0_preserved.immutable==true' "$WORK_DIR/release-audit.json" >/dev/null
 
-      - name: Preserve release evidence, including failed runs
+      - name: Preserve release and audit evidence, including every failed run
         if: always()
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           cp -R "$WORK_DIR" "$EVIDENCE_DIR/work" 2>/dev/null || true
+          cp -R .gooo "$EVIDENCE_DIR/goo-source" 2>/dev/null || true
           find "$EVIDENCE_DIR" -type f -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/SHA256SUMS" || true
 
-      - name: Upload release evidence bundle
+      - name: Upload release and audit evidence bundle
         if: always()
         uses: actions/upload-artifact@v6
         with:

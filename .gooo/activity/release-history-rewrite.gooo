@@ -1,0 +1,16 @@
+package utilitytrialprocess
+namespace utilitytrialprocess
+
+entity ReleaseHistoryRewriteEvidence id "trial://utility/process/release-history-rewrite"
+entity ReleaseHistoryRewriteProcessReceipt id "trial://utility/process/release-history-rewrite/receipt"
+
+activity RecordReleaseHistoryRewriteProcess(ReleaseHistoryRewriteEvidence) -> ReleaseHistoryRewriteProcessReceipt
+
+// RELEASE_HISTORY_REWRITE_PROCESS=REFUTED
+// failed_run_id=33407273856 failed_artifact_id=9763659711 old_release_id=379848683
+// old_zip_asset_id=538154567 old_zip_size=11377 old_zip_digest=sha256:1350c51f5f7db9dc2c6ac64523229f75cf7ec9ebdffaf99aa2c6edf32a40aa72
+// old_sums_asset_id=538154571 old_sums_size=104 old_sums_digest=sha256:1848476904a222e9fab2fbe2186ba7315ca0fb1df247ea5ddfb5d9462f1997ba
+// replacement_run_id=33407562271 replacement_artifact_id=9763767396 new_release_id=379850805
+// new_zip_asset_id=538157619 new_zip_size=11376 new_zip_digest=sha256:734082b840e915b48c42e14e93252624f5e441538509ff29dafe259b851f9a9e
+// new_sums_asset_id=538157605 new_sums_size=104 new_sums_digest=sha256:152398724ab80d4ad5dbaaa040fc2d63261431322d9344d1305e6c840bbf5ffa
+// protocol_denominator_delta=0 score_included=false denominator_migration=NONE

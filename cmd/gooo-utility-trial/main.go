@@ -55,7 +55,7 @@ func packetCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	return writeJSON(map[string]any{"state": "CLOSED", "protocol_ready": "CLOSED", "utility": "UNKNOWN", "output": filepath.Clean(root)})
+	return writeJSON(map[string]any{"state": "CLOSED", "protocol_ready": "CLOSED", "utility": "UNKNOWN", "process": "REFUTED", "output": filepath.Clean(root)})
 }
 
 func validateCommand(args []string) error {
@@ -112,4 +112,3 @@ func writeJSON(value any) error {
 	_, err = fmt.Println(string(data))
 	return err
 }
-

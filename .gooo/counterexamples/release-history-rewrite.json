@@ -1,0 +1,38 @@
+{
+  "schema": "gooo/utility-trial/counterexample/v1",
+  "case_id": "release-history-rewrite",
+  "decision": "REFUTED",
+  "release_history_rewrite_process": "REFUTED",
+  "reason": "FAILED_RELEASE_WAS_DELETED_AND_RECREATED",
+  "counterexample": {
+    "failed_run_id": 33407273856,
+    "failed_artifact_id": 9763659711,
+    "old_release_id": 379848683,
+    "old_immutable": false,
+    "old_assets": [
+      {"id": 538154567, "size": 11377, "digest": "sha256:1350c51f5f7db9dc2c6ac64523229f75cf7ec9ebdffaf99aa2c6edf32a40aa72"},
+      {"id": 538154571, "size": 104, "digest": "sha256:1848476904a222e9fab2fbe2186ba7315ca0fb1df247ea5ddfb5d9462f1997ba"}
+    ],
+    "replacement_run_id": 33407562271,
+    "replacement_artifact_id": 9763767396,
+    "new_release_id": 379850805,
+    "new_immutable": true,
+    "new_assets": [
+      {"id": 538157619, "size": 11376, "digest": "sha256:734082b840e915b48c42e14e93252624f5e441538509ff29dafe259b851f9a9e"},
+      {"id": 538157605, "size": 104, "digest": "sha256:152398724ab80d4ad5dbaaa040fc2d63261431322d9344d1305e6c840bbf5ffa"}
+    ]
+  },
+  "preserved_reference": {
+    "tag": "v0.1.0",
+    "tag_object_sha": "e30bca521d127d929043557198557710d35afcd2",
+    "target_commit_sha": "6521e699f1e1180b7e942ae18d0948383c3d544e"
+  },
+  "next_operation": "PRESERVE_RELEASE_HISTORY_AND_CREATE_NEXT_PATCH",
+  "blocked_by": [],
+  "protocol_ready": "CLOSED",
+  "utility": "UNKNOWN",
+  "external_evidence_count": 0,
+  "eligible_pairs": 0,
+  "score": "NOT_COMBINED",
+  "denominator_migration": {"operation": "NONE", "delta": 0, "protocol_cells": 12, "protocol_activities": 12, "process_cells_added": 0}
+}

@@ -60,7 +60,14 @@ With zero external receipts, the canonical result is deliberately:
 protocol_ready = CLOSED
 utility         = UNKNOWN
 utility improvement = UNKNOWN
+process         = REFUTED
 ```
+
+`protocol_ready`, `utility`, and `process` are independent axes. The process
+axis records the historical release-publication rewrite counterexample and is
+never averaged into the protocol denominator or utility score. The protocol
+denominator remains exactly 12 cells and 12 activities; the process evidence is
+a separate non-score receipt.
 
 The repository began as a three-file bootstrap (`.gitignore`, `LICENSE`, and
 this README); implementation is delivered through a reviewed pull request and
