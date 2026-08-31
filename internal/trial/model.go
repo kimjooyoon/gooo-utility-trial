@@ -124,6 +124,7 @@ type Manifest struct {
 	Fixture                 FixtureReference   `json:"fixture"`
 	Contract                ContractReference  `json:"contract"`
 	Toolchain               ToolchainReference `json:"toolchain"`
+	OracleDigest             string             `json:"oracle_digest"`
 	Counts                  Counts             `json:"counts"`
 	Counterbalance          CounterbalanceRule  `json:"counterbalance"`
 	EvidenceOriginPolicy    OriginPolicy       `json:"evidence_origin_policy"`

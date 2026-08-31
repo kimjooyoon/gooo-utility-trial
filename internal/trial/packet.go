@@ -211,6 +211,7 @@ func GeneratePacket(output string) (string, error) {
 		Fixture: FixtureReference{Schema: "gooo/opentofu-envelope/plan-oracle/v1", Path: fixturePath, SHA256: fixtureDigest},
 		Contract: ContractReference{Schema: ContractSchema, Path: contractPath, SHA256: contractDigest, CellCount: 12},
 		Toolchain: toolchain,
+		OracleDigest: oracleDigest,
 		Counts: countDenominator(),
 		Counterbalance: CounterbalanceRule{
 			Algorithm: "sha256(session_nonce|task_id|fixture_digest|toolchain_digest|contract_digest|oracle_digest)[0] mod 2",
@@ -312,7 +313,7 @@ func LoadManifest(root string) (Manifest, Oracle, error) {
 	if err != nil || contractDigest != manifest.Contract.SHA256 {
 		return manifest, oracle, fmt.Errorf("%w: contract digest mismatch", ErrInvalidPacket)
 	}
-	if oracle.FixtureDigest != manifest.Fixture.SHA256 || len(oracle.Tasks) != 2 {
+	if oracle.FixtureDigest != manifest.Fixture.SHA256 || manifest.OracleDigest != mustOracleDigest(oracle) || len(oracle.Tasks) != 2 {
 		return manifest, oracle, fmt.Errorf("%w: oracle binding", ErrInvalidPacket)
 	}
 	for _, item := range []struct{ path, expected string }{
