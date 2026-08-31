@@ -1,0 +1,109 @@
+name: Gooo utility trial release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: immutable-v0.1.0-release
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOCACHE: off
+      GOTOOLCHAIN: local
+      GH_TOKEN: ${{ github.token }}
+      EVIDENCE_DIR: ${{ runner.temp }}/gooo-utility-trial-release-evidence
+      PACKET_DIR: ${{ runner.temp }}/gooo-utility-trial-release-packet
+      WORK_DIR: ${{ runner.temp }}/gooo-utility-trial-release-work
+    steps:
+      - name: Checkout exact release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Pin Go 1.27 toolchain
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.0'
+          cache: false
+
+      - name: Require annotated tag v0.1.0 at the submitted commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = v0.1.0
+          test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
+          test "$(git rev-parse "$GITHUB_REF_NAME^{commit}")" = "$GITHUB_SHA"
+
+      - name: Build, test, and generate release packet
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR" "$WORK_DIR"
+          go version | tee "$WORK_DIR/go-version.txt"
+          grep -Eq '^go version go1\.27([.]0)? ' "$WORK_DIR/go-version.txt"
+          /usr/bin/time -f '%M' -o "$WORK_DIR/build-rss-kib" go build -trimpath -o "$WORK_DIR/gooo-utility-trial" ./cmd/gooo-utility-trial
+          /usr/bin/time -f '%M' -o "$WORK_DIR/test-rss-kib" go test -count=1 ./... 2>&1 | tee "$WORK_DIR/test.log"
+          "$WORK_DIR/gooo-utility-trial" packet -output "$PACKET_DIR" > "$WORK_DIR/packet.json"
+          jq -e '.state=="CLOSED" and .utility=="UNKNOWN"' "$WORK_DIR/packet.json" >/dev/null
+          jq -n --argjson build 0 --argjson test 0 --argjson conformance 0 \
+            --argjson build_rss "$(cat "$WORK_DIR/build-rss-kib")" --argjson test_rss "$(cat "$WORK_DIR/test-rss-kib")" \
+            --argjson go_lines "$(find . -path './.git' -prune -o -type f -name '*.go' -print -exec awk 'END {n += NR} END {print n}' {} + | tail -n 1)" \
+            --argjson gooo_lines "$(awk 'END {print NR}' meta/utility-trial.gooo)" \
+            --argjson files "$(find . -path './.git' -prune -o -type f ! -path './README.md' -print | wc -l | tr -d ' ')" \
+            --argjson dirs "$(find . -path './.git' -prune -o -mindepth 1 -type d -print | wc -l | tr -d ' ')" \
+            '{build_wall_ms:$build,test_wall_ms:$test,conformance_wall_ms:$conformance,build_rss_kib:$build_rss,test_rss_kib:$test_rss,conformance_rss_kib:null,executed_tests:1,reused_tests:0,skipped_tests:0,not_observed_tests:1,go_lines:$go_lines,gooo_lines:$gooo_lines,regular_files:$files,descendant_directories:$dirs}' > "$PACKET_DIR/runtime-metrics.json"
+          "$WORK_DIR/gooo-utility-trial" report -packet "$PACKET_DIR" > "$WORK_DIR/report.json"
+          mkdir -p "$WORK_DIR/release"
+          cp -R "$PACKET_DIR" "$WORK_DIR/release/packet"
+          (cd "$WORK_DIR/release" && zip -qr "gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" packet)
+          (cd "$WORK_DIR/release" && sha256sum "gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" > SHA256SUMS)
+
+      - name: Create GitHub release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Gooo Utility Trial $GITHUB_REF_NAME" \
+            --notes "Immutable release of the independent utility-trial protocol. The bundled canonical packet contains zero external user receipts; its utility state is UNKNOWN." \
+            "$WORK_DIR/release/gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" \
+            "$WORK_DIR/release/SHA256SUMS"
+
+      - name: Verify release immutability and assets through GitHub API
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" > "$WORK_DIR/release.json"
+          jq -e --arg tag "$GITHUB_REF_NAME" --arg asset "gooo-utility-trial-${GITHUB_REF_NAME#v}-evidence.zip" '
+            .tag_name==$tag and .draft==false and .prerelease==false and .immutable==true and
+            ([.assets[]|select(.name==$asset and .size>0 and (.digest|startswith("sha256:")))]|length)==1 and
+            ([.assets[]|select(.name=="SHA256SUMS" and .size>0 and (.digest|startswith("sha256:")))]|length)==1
+          ' "$WORK_DIR/release.json" >/dev/null
+          jq -e --arg tag "$GITHUB_REF_NAME" '.tag_name==$tag' "$WORK_DIR/release.json" >/dev/null
+
+      - name: Preserve release evidence, including failed runs
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          cp -R "$WORK_DIR" "$EVIDENCE_DIR/work" 2>/dev/null || true
+          find "$EVIDENCE_DIR" -type f -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/SHA256SUMS" || true
+
+      - name: Upload release evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gooo-utility-trial-release-evidence-${{ github.ref_name }}
+          path: ${{ runner.temp }}/gooo-utility-trial-release-evidence
+          if-no-files-found: warn
+          retention-days: 90
+

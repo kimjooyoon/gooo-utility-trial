@@ -1,0 +1,182 @@
+name: Gooo utility trial conformance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: utility-trial-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    name: utility-trial-conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOCACHE: off
+      GOTOOLCHAIN: local
+      GH_TOKEN: ${{ github.token }}
+      UPSTREAM_REPOSITORY: kimjooyoon/gooo-opentofu-envelope
+      UPSTREAM_TAG: v0.1.1
+      EVIDENCE_DIR: ${{ runner.temp }}/gooo-utility-trial-evidence
+      PACKET_DIR: ${{ runner.temp }}/gooo-utility-trial-packet
+      WORK_DIR: ${{ runner.temp }}/gooo-utility-trial-work
+    steps:
+      - name: Checkout submitted revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Pin Go 1.27 toolchain
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.0'
+          cache: false
+
+      - name: Verify exact Go version and fixed Gooo denominator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR" "$WORK_DIR"
+          go version | tee "$WORK_DIR/go-version.txt"
+          grep -Eq '^go version go1\.27([.]0)? ' "$WORK_DIR/go-version.txt"
+          test "$(grep -c '^activity ' meta/utility-trial.gooo)" -eq 12
+          test "$(grep -c '^entity ' meta/utility-trial.gooo)" -eq 12
+          jq -e '
+            .schema=="gooo/utility-trial/denominator/v1" and
+            .target_cells==12 and .target_activities==12 and
+            .proof_distribution=={"FOUNDATION":4,"COHERENCE":4,"REGRESSION":4} and
+            .indicator_distribution=={"DRIVER":4,"OUTCOME":4,"GUARDRAIL":4} and
+            .case_distribution=={"CLOSED":3,"UNKNOWN":3,"REFUTED":6} and
+            .precedence==["REFUTED","UNKNOWN","CLOSED"] and
+            (.cells|length)==12
+          ' contracts/trial-denominator-v1.json >/dev/null
+
+      - name: Verify immutable upstream Gooo release through GitHub API
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="$WORK_DIR/upstream-release.json"
+          gh api "repos/$UPSTREAM_REPOSITORY/releases/tags/$UPSTREAM_TAG" > "$release"
+          jq -e --arg tag "$UPSTREAM_TAG" '
+            .id==379769579 and .tag_name==$tag and .draft==false and .prerelease==false and .immutable==true and
+            ([.assets[] | select(.id==538012631 and .name=="gooo-opentofu-envelope-v0.1.0-evidence.zip" and .size==17829 and .digest=="sha256:dc8a466ecc4ea2f5c127dcc59985252ba8a01a7ae6eb8fb1caa63f7f595fcd31")] | length)==1
+          ' "$release" >/dev/null
+          test "$(git ls-remote "https://github.com/$UPSTREAM_REPOSITORY.git" "refs/tags/$UPSTREAM_TAG" | awk 'NR==1{print $1}')" = "1d8e07c49b700b7e72ec9c413157d851188c09b6"
+          test "$(git ls-remote "https://github.com/$UPSTREAM_REPOSITORY.git" "refs/tags/$UPSTREAM_TAG^{}" | awk 'NR==1{print $1}')" = "6b482d402f4ceff8a8b23205cce8db5154305382"
+          gh api -H 'Accept: application/octet-stream' repos/$UPSTREAM_REPOSITORY/releases/assets/538012631 > "$WORK_DIR/upstream-evidence.zip"
+          test "$(wc -c < "$WORK_DIR/upstream-evidence.zip" | tr -d ' ')" = 17829
+          test "$(sha256sum "$WORK_DIR/upstream-evidence.zip" | awk '{print $1}')" = dc8a466ecc4ea2f5c127dcc59985252ba8a01a7ae6eb8fb1caa63f7f595fcd31
+          curl --fail --location --silent --show-error \
+            "https://raw.githubusercontent.com/$UPSTREAM_REPOSITORY/6b482d402f4ceff8a8b23205cce8db5154305382/fixtures/plan-oracle-v1.json" \
+            -o "$WORK_DIR/upstream-fixture.json"
+          cmp fixtures/plan-oracle-v1.json "$WORK_DIR/upstream-fixture.json"
+
+      - name: Build with measured wall time and peak RSS
+        shell: bash
+        run: |
+          set -euo pipefail
+          start_ns=$(date +%s%N)
+          /usr/bin/time -f '%M' -o "$WORK_DIR/build-rss-kib" go build -trimpath -o "$WORK_DIR/gooo-utility-trial" ./cmd/gooo-utility-trial
+          end_ns=$(date +%s%N)
+          echo $(( (end_ns-start_ns+999999)/1000000 )) > "$WORK_DIR/build-wall-ms"
+          test -x "$WORK_DIR/gooo-utility-trial"
+
+      - name: Run Go tests with measured wall time and peak RSS
+        shell: bash
+        run: |
+          set -euo pipefail
+          start_ns=$(date +%s%N)
+          /usr/bin/time -f '%M' -o "$WORK_DIR/test-rss-kib" go test -count=1 ./... 2>&1 | tee "$WORK_DIR/test.log"
+          end_ns=$(date +%s%N)
+          echo $(( (end_ns-start_ns+999999)/1000000 )) > "$WORK_DIR/test-wall-ms"
+
+      - name: Generate caller-owned packet and run conformance path
+        shell: bash
+        run: |
+          set -euo pipefail
+          start_ns=$(date +%s%N)
+          /usr/bin/time -f '%M' -o "$WORK_DIR/conformance-rss-kib" "$WORK_DIR/gooo-utility-trial" packet -output "$PACKET_DIR" > "$WORK_DIR/packet.json"
+          end_ns=$(date +%s%N)
+          echo $(( (end_ns-start_ns+999999)/1000000 )) > "$WORK_DIR/conformance-wall-ms"
+          jq -e '.state=="CLOSED" and .protocol_ready=="CLOSED" and .utility=="UNKNOWN"' "$WORK_DIR/packet.json" >/dev/null
+          test -s "$PACKET_DIR/trial-manifest.json"
+          test -s "$PACKET_DIR/assignments.ndjson"
+          test -s "$PACKET_DIR/oracle.json"
+          test -s "$PACKET_DIR/session-receipt.schema.json"
+          test -f "$PACKET_DIR/validated-evidence.ndjson"
+          jq -e '
+            .protocol_ready=="CLOSED" and .utility_state=="UNKNOWN" and .external_evidence_count==0 and
+            .counts=={
+              "cells":12,"activities":12,"proof_foundation":4,"proof_coherence":4,"proof_regression":4,
+              "indicator_driver":4,"indicator_outcome":4,"indicator_guardrail":4,"closed":3,"unknown":3,"refuted":6,
+              "precedence":["REFUTED","UNKNOWN","CLOSED"]
+            }
+          ' "$PACKET_DIR/trial-manifest.json" >/dev/null
+          jq -e '.tasks|length==2 and all(.[]; (.assignments|length)==2)' "$PACKET_DIR/oracle.json" >/dev/null
+          jq -e '.tasks[]|select(.task_id=="U2_UNKNOWN_RESUME")|.unknown_frontier|([.stage,.step,.reason,.unknown_class,.next_operation,(.blocked_by|join(","))]|length)==6' "$PACKET_DIR/oracle.json" >/dev/null
+
+      - name: Write observed CI metrics and refresh the report
+        shell: bash
+        run: |
+          set -euo pipefail
+          go_lines=$(find . -path './.git' -prune -o -type f -name '*.go' -print -exec awk 'END {n += NR} END {print n}' {} + | tail -n 1)
+          gooo_lines=$(awk 'END {print NR}' meta/utility-trial.gooo)
+          regular_files=$(find . -path './.git' -prune -o -type f ! -path './README.md' -print | wc -l | tr -d ' ')
+          descendant_dirs=$(find . -path './.git' -prune -o -mindepth 1 -type d -print | wc -l | tr -d ' ')
+          jq -n \
+            --argjson build "$(cat "$WORK_DIR/build-wall-ms")" \
+            --argjson test "$(cat "$WORK_DIR/test-wall-ms")" \
+            --argjson conformance "$(cat "$WORK_DIR/conformance-wall-ms")" \
+            --argjson build_rss "$(cat "$WORK_DIR/build-rss-kib")" \
+            --argjson test_rss "$(cat "$WORK_DIR/test-rss-kib")" \
+            --argjson conformance_rss "$(cat "$WORK_DIR/conformance-rss-kib")" \
+            --argjson go_lines "$go_lines" --argjson gooo_lines "$gooo_lines" \
+            --argjson files "$regular_files" --argjson dirs "$descendant_dirs" \
+            '{build_wall_ms:$build,test_wall_ms:$test,conformance_wall_ms:$conformance,
+              build_rss_kib:$build_rss,test_rss_kib:$test_rss,conformance_rss_kib:$conformance_rss,
+              executed_tests:1,reused_tests:0,skipped_tests:0,not_observed_tests:0,
+              go_lines:$go_lines,gooo_lines:$gooo_lines,regular_files:$files,descendant_directories:$dirs}' \
+            > "$PACKET_DIR/runtime-metrics.json"
+          "$WORK_DIR/gooo-utility-trial" report -packet "$PACKET_DIR" > "$WORK_DIR/report.json"
+          jq -e '.state=="CLOSED"' "$WORK_DIR/report.json" >/dev/null
+          grep -q 'protocol_ready: `CLOSED`' "$PACKET_DIR/utility-report.md"
+          grep -q 'utility: `UNKNOWN`' "$PACKET_DIR/utility-report.md"
+          grep -q 'eligible pairs | 0' "$PACKET_DIR/utility-report.md"
+          grep -q 'executed tests | 1' "$PACKET_DIR/utility-report.md"
+
+      - name: Prove submitted source stayed read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --short)"
+
+      - name: Preserve exact evidence, including failed runs
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          cp -f "$WORK_DIR/go-version.txt" "$EVIDENCE_DIR/" 2>/dev/null || true
+          cp -f "$WORK_DIR/test.log" "$EVIDENCE_DIR/" 2>/dev/null || true
+          cp -f "$WORK_DIR/upstream-release.json" "$EVIDENCE_DIR/" 2>/dev/null || true
+          cp -f "$WORK_DIR/report.json" "$EVIDENCE_DIR/" 2>/dev/null || true
+          cp -R "$PACKET_DIR" "$EVIDENCE_DIR/packet" 2>/dev/null || true
+          find "$EVIDENCE_DIR" -type f -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/SHA256SUMS" || true
+
+      - name: Upload exact evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gooo-utility-trial-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/gooo-utility-trial-evidence
+          if-no-files-found: warn
+          retention-days: 30
+

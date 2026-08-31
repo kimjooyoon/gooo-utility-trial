@@ -1,0 +1,27 @@
+{
+  "schema": "gooo/utility-trial/denominator/v1",
+  "version": 1,
+  "target_cells": 12,
+  "target_activities": 12,
+  "proof_distribution": {"FOUNDATION": 4, "COHERENCE": 4, "REGRESSION": 4},
+  "indicator_distribution": {"DRIVER": 4, "OUTCOME": 4, "GUARDRAIL": 4},
+  "case_distribution": {"CLOSED": 3, "UNKNOWN": 3, "REFUTED": 6},
+  "precedence": ["REFUTED", "UNKNOWN", "CLOSED"],
+  "unknown_tuple": ["stage", "step", "reason", "unknown_class", "next_operation", "blocked_by"],
+  "eligible_origins": ["EXTERNAL_USER", "INDEPENDENT_SESSION"],
+  "protocol_test_origins": ["CI", "MAINTAINER_SELF_TEST", "SYNTHETIC"],
+  "cells": [
+    {"ordinal": 1, "id": "TRIAL_INPUT_DECLARED", "activity": "DeclareIndependentTrialInput", "stage": "INPUT", "step": "DECLARE_TRIAL_INPUT", "proof_family": "FOUNDATION", "indicator": "DRIVER", "case_state": "CLOSED", "depends_on": []},
+    {"ordinal": 2, "id": "RELEASE_ANCHORED", "activity": "AnchorImmutableGoooRelease", "stage": "RELEASE", "step": "ANCHOR_IMMUTABLE_GOOO_RELEASE", "proof_family": "FOUNDATION", "indicator": "DRIVER", "case_state": "CLOSED", "depends_on": ["TRIAL_INPUT_DECLARED"]},
+    {"ordinal": 3, "id": "FIXTURE_BOUND", "activity": "BindOpenTofuPlanOracleFixture", "stage": "FIXTURE", "step": "BIND_OPENTOFU_PLAN_ORACLE", "proof_family": "FOUNDATION", "indicator": "DRIVER", "case_state": "CLOSED", "depends_on": ["RELEASE_ANCHORED"]},
+    {"ordinal": 4, "id": "PACKET_GENERATED", "activity": "GenerateCallerOwnedTrialPacket", "stage": "GENERATION", "step": "GENERATE_CALLER_OWNED_PACKET", "proof_family": "FOUNDATION", "indicator": "DRIVER", "case_state": "UNKNOWN", "depends_on": ["FIXTURE_BOUND"]},
+    {"ordinal": 5, "id": "BASELINE_PATH_FIXED", "activity": "FixBaselineMachinePath", "stage": "DESIGN", "step": "FIX_BASELINE_RAW_MACHINE_PATH", "proof_family": "COHERENCE", "indicator": "OUTCOME", "case_state": "UNKNOWN", "depends_on": ["PACKET_GENERATED"]},
+    {"ordinal": 6, "id": "GOOO_PATH_FIXED", "activity": "FixGoooHumanPath", "stage": "DESIGN", "step": "FIX_GOOO_HUMAN_DOSSIER_PATH", "proof_family": "COHERENCE", "indicator": "OUTCOME", "case_state": "UNKNOWN", "depends_on": ["PACKET_GENERATED"]},
+    {"ordinal": 7, "id": "ORACLE_FIXED", "activity": "FixExactDecisionOracle", "stage": "ORACLE", "step": "FIX_EXACT_DECISION_ORACLE", "proof_family": "COHERENCE", "indicator": "OUTCOME", "case_state": "REFUTED", "depends_on": ["BASELINE_PATH_FIXED", "GOOO_PATH_FIXED"]},
+    {"ordinal": 8, "id": "COUNTERBALANCE_FIXED", "activity": "AssignDeterministicCounterbalance", "stage": "ASSIGNMENT", "step": "ASSIGN_DETERMINISTIC_COUNTERBALANCE", "proof_family": "COHERENCE", "indicator": "OUTCOME", "case_state": "REFUTED", "depends_on": ["ORACLE_FIXED"]},
+    {"ordinal": 9, "id": "RECEIPT_GUARDED", "activity": "ValidateSessionReceipt", "stage": "RECEIPT", "step": "VALIDATE_SESSION_RECEIPT", "proof_family": "REGRESSION", "indicator": "GUARDRAIL", "case_state": "REFUTED", "depends_on": ["COUNTERBALANCE_FIXED"]},
+    {"ordinal": 10, "id": "PAIR_GUARDED", "activity": "RequireMatchedBeforeAfterPair", "stage": "PAIR", "step": "REQUIRE_MATCHED_BEFORE_AFTER_PAIR", "proof_family": "REGRESSION", "indicator": "GUARDRAIL", "case_state": "REFUTED", "depends_on": ["RECEIPT_GUARDED"]},
+    {"ordinal": 11, "id": "ORIGIN_GUARDED", "activity": "ExcludeNonExternalUtilityEvidence", "stage": "ORIGIN", "step": "EXCLUDE_NON_EXTERNAL_UTILITY_EVIDENCE", "proof_family": "REGRESSION", "indicator": "GUARDRAIL", "case_state": "REFUTED", "depends_on": ["RECEIPT_GUARDED"]},
+    {"ordinal": 12, "id": "UTILITY_REPORTED", "activity": "ReportExternalUtilityBoundary", "stage": "REPORT", "step": "REPORT_EXTERNAL_UTILITY_BOUNDARY", "proof_family": "REGRESSION", "indicator": "GUARDRAIL", "case_state": "REFUTED", "depends_on": ["PAIR_GUARDED", "ORIGIN_GUARDED"]}
+  ]
+}
