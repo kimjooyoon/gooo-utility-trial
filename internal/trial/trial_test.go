@@ -47,6 +47,7 @@ func testReceipt(t *testing.T, root, session, receiptID, assignment string, elap
 		EnvironmentDigest: sha256Digest([]byte("test-environment")),
 		Origin: origin,
 		ConsentRetentionPolicy: ConsentRetentionPolicy{ConsentGiven: true, RetentionPolicy: "test-only; delete after test", RetentionDays: 1},
+		UnknownFrontier: oracleFrontier(oracle),
 		BeforeAfterPair: PairMetadata{PairID: pairID(Receipt{SessionNonce: session, TaskID: expected.TaskID, OracleDigest: mustOracleDigest(oracle)}, manifest), CounterbalanceOrder: "", Phase: "", PairEligible: false},
 	}
 }

@@ -6,7 +6,7 @@ const receiptSchemaJSON = `{
   "title": "Gooo independent utility trial session receipt",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "receipt_id", "session_nonce", "task_id", "assignment", "fixture_digest", "toolchain_digest", "contract_digest", "oracle_digest", "input_digest", "decision_digest", "correctness", "elapsed_ms", "timing_kind", "estimated", "abandonment_state", "environment_digest", "origin", "consent_retention_policy", "before_after_pair"],
+  "required": ["schema", "receipt_id", "session_nonce", "task_id", "assignment", "fixture_digest", "toolchain_digest", "contract_digest", "oracle_digest", "input_digest", "decision_digest", "correctness", "elapsed_ms", "timing_kind", "estimated", "abandonment_state", "environment_digest", "origin", "consent_retention_policy", "unknown_frontier", "before_after_pair"],
   "properties": {
     "schema": {"const": "gooo/utility-trial/session-receipt/v1"},
     "receipt_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
@@ -35,6 +35,18 @@ const receiptSchemaJSON = `{
         "retention_days": {"type": "integer", "minimum": 1}
       }
     },
+    "unknown_frontier": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stage", "step", "reason", "unknown_class", "next_operation", "blocked_by"],
+      "properties": {
+        "stage": {"type": "string", "minLength": 1},
+        "step": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "unknown_class": {"type": "string", "minLength": 1},
+        "next_operation": {"type": "string", "minLength": 1},
+        "blocked_by": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
     "before_after_pair": {
       "type": "object", "additionalProperties": false,
       "required": ["pair_id", "phase", "counterbalance_order", "pair_eligible"],
@@ -47,4 +59,3 @@ const receiptSchemaJSON = `{
     }
   }
 }`
-

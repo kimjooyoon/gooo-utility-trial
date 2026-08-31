@@ -211,6 +211,7 @@ type Receipt struct {
 	EnvironmentDigest      string                 `json:"environment_digest"`
 	Origin                 string                 `json:"origin"`
 	ConsentRetentionPolicy ConsentRetentionPolicy `json:"consent_retention_policy"`
+	UnknownFrontier        UnknownFrontier        `json:"unknown_frontier"`
 	BeforeAfterPair        PairMetadata           `json:"before_after_pair"`
 }
 

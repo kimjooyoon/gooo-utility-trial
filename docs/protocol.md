@@ -16,7 +16,8 @@ digest. Only a complete baseline/gooo pair can enter the utility numerator.
 Receipts contain no name, email, free-form answer, rating, or other PII. A
 receipt records only a digest of the exact decision token, a correctness
 integer, observed monotonic elapsed milliseconds, abandonment state, origin,
-consent/retention policy, and provenance digests.
+consent/retention policy, the complete six-field UNKNOWN frontier, and
+provenance digests.
 
 `EXTERNAL_USER` and an explicitly isolated `INDEPENDENT_SESSION` are eligible
 origins. `CI`, `MAINTAINER_SELF_TEST`, and `SYNTHETIC` records may exercise the
@@ -52,4 +53,3 @@ go run ./cmd/gooo-utility-trial record \
 The validator fails closed for malformed origins, digest mismatches, a missing
 or mismatched pair, negative or estimated timing, oracle/correctness mismatch,
 and replayed receipt IDs or contents.
-

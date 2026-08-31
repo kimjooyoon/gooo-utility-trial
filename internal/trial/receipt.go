@@ -152,6 +152,9 @@ func validateReceiptShape(receipt Receipt) error {
 	if strings.TrimSpace(receipt.ConsentRetentionPolicy.RetentionPolicy) == "" || receipt.ConsentRetentionPolicy.RetentionDays < 1 {
 		return errors.New("CONSENT_RETENTION_POLICY_INVALID")
 	}
+	if strings.TrimSpace(receipt.UnknownFrontier.Stage) == "" || strings.TrimSpace(receipt.UnknownFrontier.Step) == "" || strings.TrimSpace(receipt.UnknownFrontier.Reason) == "" || strings.TrimSpace(receipt.UnknownFrontier.UnknownClass) == "" || strings.TrimSpace(receipt.UnknownFrontier.NextOperation) == "" || len(receipt.UnknownFrontier.BlockedBy) == 0 {
+		return errors.New("UNKNOWN_FRONTIER_INCOMPLETE")
+	}
 	if eligibleOrigin(receipt.Origin) && !receipt.ConsentRetentionPolicy.ConsentGiven {
 		return errors.New("ELIGIBLE_ORIGIN_WITHOUT_CONSENT")
 	}
@@ -279,6 +282,9 @@ func validateAgainstPacket(receipt Receipt, manifest Manifest, oracle Oracle) er
 	if receipt.OracleDigest != mustOracleDigest(oracle) {
 		return errors.New("ORACLE_DIGEST_MISMATCH")
 	}
+	if !sameUnknownFrontier(receipt.UnknownFrontier, oracleFrontier(oracle)) {
+		return errors.New("UNKNOWN_FRONTIER_MISMATCH")
+	}
 	expected, ok := assignmentExpectationFor(oracle, receipt.Assignment)
 	if !ok || expected.TaskID != receipt.TaskID || expected.InputDigest != receipt.InputDigest {
 		return errors.New("ASSIGNMENT_INPUT_DIGEST_MISMATCH")
@@ -308,6 +314,27 @@ func boolInt(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+func oracleFrontier(oracle Oracle) UnknownFrontier {
+	for _, task := range oracle.Tasks {
+		if task.UnknownFrontier != nil {
+			return *task.UnknownFrontier
+		}
+	}
+	return UnknownFrontier{}
+}
+
+func sameUnknownFrontier(left, right UnknownFrontier) bool {
+	if left.Stage != right.Stage || left.Step != right.Step || left.Reason != right.Reason || left.UnknownClass != right.UnknownClass || left.NextOperation != right.NextOperation || len(left.BlockedBy) != len(right.BlockedBy) {
+		return false
+	}
+	for index := range left.BlockedBy {
+		if left.BlockedBy[index] != right.BlockedBy[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func mustOracleDigest(oracle Oracle) string {
