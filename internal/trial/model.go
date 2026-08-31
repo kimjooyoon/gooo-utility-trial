@@ -310,6 +310,16 @@ func canonicalDigest(value any) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// Normalize structs through an interface round-trip so a digest does not
+	// depend on whether the same JSON was produced from a struct or a map.
+	var normalized any
+	if err := json.Unmarshal(data, &normalized); err != nil {
+		return "", err
+	}
+	data, err = canonicalJSON(normalized)
+	if err != nil {
+		return "", err
+	}
 	return sha256Digest(data), nil
 }
 
